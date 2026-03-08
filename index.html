@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theatre Studies Notes</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --card-bg: #1e293b;
+            --card-hover: #334155;
+            --accent: #fbbf24;
+            --accent-hover: #f59e0b;
+            --border-radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            color: var(--accent);
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        /* Fallback File Upload */
+        #file-upload-container {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            margin-bottom: 20px;
+            border: 1px dashed var(--accent);
+            display: none; /* Hidden by default, shown if auto-fetch fails */
+        }
+
+        input[type="file"] {
+            margin-top: 10px;
+            color: var(--text-main);
+        }
+
+        /* Unit Navigation Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            animation: fadeIn 1s ease-out;
+        }
+
+        .tab-btn {
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .tab-btn:hover {
+            background-color: var(--card-hover);
+            transform: translateY(-2px);
+        }
+
+        .tab-btn.active {
+            background-color: var(--accent);
+            color: #000;
+            box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
+        }
+
+        /* Notes Container */
+        #notes-container {
+            width: 100%;
+            max-width: 800px;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        /* Accordion Cards */
+        .card {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            margin-bottom: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: transform 0.2s ease;
+        }
+
+        .card-header {
+            padding: 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+
+        .card-header:hover {
+            background-color: var(--card-hover);
+        }
+
+        .card-header::after {
+            content: '+';
+            font-size: 1.5rem;
+            color: var(--accent);
+            transition: transform 0.3s ease;
+        }
+
+        .card.active .card-header::after {
+            transform: rotate(45deg);
+        }
+
+        .card-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background-color: rgba(0,0,0,0.2);
+        }
+
+        .card-content {
+            padding: 20px;
+            color: var(--text-muted);
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* Format Answer Text visually */
+        .card-content p {
+            margin-bottom: 12px;
+        }
+        
+        .card-content strong {
+            color: var(--text-main);
+        }
+
+        /* Animations */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🎭 Theatre Studies Notes</h1>
+        <p>Interactive Study Guide</p>
+    </header>
+
+    <div id="file-upload-container">
+        <p>Could not load <strong>data.csv</strong> automatically (Local file restriction).</p>
+        <p>Please select your <strong>data.csv</strong> file manually:</p>
+        <input type="file" id="csvFileInput" accept=".csv">
+    </div>
+
+    <div class="tabs" id="tabs-container"></div>
+    <main id="notes-container"></main>
+
+    <script>
+        let unitsData = []; // Array of arrays containing objects {qno, question, answer}
+
+        // Initialize Application
+        async function init() {
+            try {
+                const response = await fetch('data.csv');
+                if (!response.ok) throw new Error("File not found or blocked");
+                const text = await response.text();
+                processCSV(text);
+            } catch (error) {
+                console.warn("Auto-fetch failed. Showing manual upload option.");
+                document.getElementById('file-upload-container').style.display = 'block';
+            }
+        }
+
+        // Handle manual file upload fallback
+        document.getElementById('csvFileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('file-upload-container').style.display = 'none';
+                processCSV(e.target.result);
+            };
+            reader.readAsText(file);
+        });
+
+        // Parse CSV Text (Handles newlines and quotes accurately)
+        function processCSV(csvText) {
+            const rows = parseCSVString(csvText);
+            unitsData = [];
+            let currentUnit = [];
+
+            // Skip header row (index 0)
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.length < 3) continue; // Skip empty rows
+
+                const qno = row[0].trim();
+                const question = row[1].trim();
+                const answer = row[2].trim();
+
+                // If qno is 1, it means a new unit is starting
+                if (qno === '1' && currentUnit.length > 0) {
+                    unitsData.push(currentUnit);
+                    currentUnit = [];
+                }
+
+                currentUnit.push({ qno, question, answer });
+            }
+            if (currentUnit.length > 0) unitsData.push(currentUnit); // Push the last unit
+
+            renderTabs();
+            if (unitsData.length > 0) renderUnit(0); // Render first unit by default
+        }
+
+        // Standard CSV Parser state machine
+        function parseCSVString(str) {
+            const arr = [];
+            let quote = false;
+            let row = 0, col = 0;
+            for (let c = 0; c < str.length; c++) {
+                let cc = str[c], nc = str[c+1];
+                arr[row] = arr[row] || [];
+                arr[row][col] = arr[row][col] || '';
+                
+                if (cc == '"' && quote && nc == '"') { arr[row][col] += cc; ++c; continue; }
+                if (cc == '"') { quote = !quote; continue; }
+                if (cc == ',' && !quote) { ++col; continue; }
+                if (cc == '\r' && nc == '\n' && !quote) { ++row; col = 0; ++c; continue; }
+                if (cc == '\n' && !quote) { ++row; col = 0; continue; }
+                
+                arr[row][col] += cc;
+            }
+            return arr;
+        }
+
+        // Render Navigation Tabs
+        function renderTabs() {
+            const tabsContainer = document.getElementById('tabs-container');
+            tabsContainer.innerHTML = '';
+
+            unitsData.forEach((_, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'tab-btn' + (index === 0 ? ' active' : '');
+                btn.textContent = `Unit ${index + 1}`;
+                btn.onclick = () => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderUnit(index);
+                };
+                tabsContainer.appendChild(btn);
+            });
+        }
+
+        // Render Questions for a specific unit
+        function renderUnit(unitIndex) {
+            const container = document.getElementById('notes-container');
+            container.innerHTML = '';
+            
+            // Re-trigger animation
+            container.style.animation = 'none';
+            container.offsetHeight; /* trigger reflow */
+            container.style.animation = 'slideUp 0.5s ease-out';
+
+            const unitData = unitsData[unitIndex];
+
+            unitData.forEach((item) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+
+                // Header (Question)
+                const header = document.createElement('div');
+                header.className = 'card-header';
+                header.textContent = `Q${item.qno}: ${item.question}`;
+
+                // Body (Answer)
+                const body = document.createElement('div');
+                body.className = 'card-body';
+                
+                // Format the text: replace newlines with paragraphs, bold key terms before colons
+                let formattedAnswer = item.answer
+                    .split('\n')
+                    .filter(line => line.trim() !== '')
+                    .map(line => {
+                        // Bold text before colons for better readability
+                        let parts = line.split(/:(.*)/s);
+                        if(parts.length > 1) {
+                            return `<p><strong>${parts[0]}:</strong>${parts[1]}</p>`;
+                        }
+                        return `<p>${line}</p>`;
+                    })
+                    .join('');
+
+                body.innerHTML = `<div class="card-content">${formattedAnswer}</div>`;
+
+                // Accordion click logic
+                header.onclick = () => {
+                    const isActive = card.classList.contains('active');
+                    
+                    // Close all other cards
+                    document.querySelectorAll('.card').forEach(c => {
+                        c.classList.remove('active');
+                        c.querySelector('.card-body').style.maxHeight = null;
+                    });
+
+                    // Open this card if it wasn't already open
+                    if (!isActive) {
+                        card.classList.add('active');
+                        body.style.maxHeight = body.scrollHeight + "px";
+                    }
+                };
+
+                card.appendChild(header);
+                card.appendChild(body);
+                container.appendChild(card);
+            });
+        }
+
+        // Start the app
+        init();
+    </script>
+</body>
+</html>
